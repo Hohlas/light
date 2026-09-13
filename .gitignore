@@ -1,0 +1,13 @@
+# Полные выгрузки рекордера и бэкфилла — вне гита (растут, воспроизводятся).
+data/*
+!data/README.md
+!data/*_sample.csv
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Логи рекордера
+*.log

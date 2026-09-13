@@ -1,0 +1,4 @@
+# requirements: только стандартная библиотека Python (≥ 3.10)
+# src/record_spread.py и src/backfill_lighter_1m.py используют
+# argparse, csv, gzip, json, os, time, urllib — ничего ставить не нужно.
+# Анализ вне скриптов (опционально): pandas
