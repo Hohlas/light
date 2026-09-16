@@ -37,7 +37,7 @@ def _parse_ts(s: str) -> datetime | None:
 
 def load_heartbeats(outdir: str, since: datetime) -> list[tuple[datetime, float]]:
     pts: list[tuple[datetime, float]] = []
-    for path in sorted(glob.glob(os.path.join(outdir, "tick_stream_xau_paxg_*.csv"))):
+    for path in sorted(glob.glob(os.path.join(outdir, "tick_stream_xau_paxg*.csv"))):
         try:
             fh = open(path, encoding="utf-8")
         except OSError:

@@ -7,9 +7,11 @@ Usage:
     python3 src/stream_tick_lighter.py --timeout 30 --outdir data
     python3 src/stream_tick_lighter.py --threshold 1 --outdir data   # continuous
 
-Output: data/tick_stream_xau_paxg_YYYY-MM-DD.csv. To keep volume low, only
-interesting ticks are written: |spread| > --threshold plus a 5 s buffer
-before/after each case, plus one heartbeat row per minute (hb=1).
+Output: data/tick_stream_xau_paxg.csv (single append-only file, no date in
+the name: easier for charts/stats/search; grows ~50 MB/day).
+To keep volume low, only interesting ticks are written: |spread| >
+--threshold plus a 5 s buffer before/after each case, plus one heartbeat
+row per minute (hb=1).
 Status: DIAGNOSTIC_ONLY, read-only public stream, no auth, no trading.
 """
 
@@ -130,9 +132,12 @@ def run(outdir: str, threshold: float, timeout: float) -> int:
     last_case_mono: float | None = None
     last_hb = time.time()
     last_stat = time.time()
-    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    path = os.path.join(outdir, f"tick_stream_xau_paxg_{day}.csv")
+    path = os.path.join(outdir, "tick_stream_xau_paxg.csv")
     _ensure_header(path)
+
+    def w(rw: dict) -> None:
+        _write(path, rw)
+
     t_end = time.time() + timeout if timeout > 0 else None
     last_ping = time.time()
     while True:
@@ -198,10 +203,10 @@ def run(outdir: str, threshold: float, timeout: float) -> int:
                         for _, br in buf[:-1]:
                             if not br.get("_saved"):
                                 br["_saved"] = True
-                                _write(path, {k: br[k] for k in FIELDS})
+                                w({k: br[k] for k in FIELDS})
                                 n_written += 1
                     row["_saved"] = True
-                    _write(path, {k: row[k] for k in FIELDS})
+                    w({k: row[k] for k in FIELDS})
                     n_written += 1
                     n_cases += 1
                     last_case_mono = now_mono
@@ -211,7 +216,7 @@ def run(outdir: str, threshold: float, timeout: float) -> int:
                           f"exit={row['spread_exit_bp']}bp", flush=True)
                 elif last_case_mono is not None and now_mono - last_case_mono <= POST_S:
                     row["_saved"] = True  # trailing window
-                    _write(path, {k: row[k] for k in FIELDS})
+                    w({k: row[k] for k in FIELDS})
                     n_written += 1
                 else:
                     last_case_mono = None
@@ -220,7 +225,7 @@ def run(outdir: str, threshold: float, timeout: float) -> int:
                     hb = dict(row)
                     hb["hb"] = 1
                     hb["_saved"] = True
-                    _write(path, {k: hb[k] for k in FIELDS})
+                    w({k: hb[k] for k in FIELDS})
                     n_written += 1
                 if time.time() - last_stat >= HEARTBEAT_S:
                     last_stat = time.time()
