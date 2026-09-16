@@ -181,16 +181,16 @@ python3 src/backfill_aster_1m.py --days 7 --outdir data         # история
 
 ## 12. Мульти-площадочный скан (с 2026-09-15)
 
-Шесть площадок, цикл ~15 с (`src/poll_cross_fast.py`, запросы параллельно через потоки ~5 с; замер 2026-09-16: 15,0 с; каждый запрос в своей защите — частичные строки пишутся).
+Шесть площадок, цикл ~15 с (`src/poll_cross_fast.py`, запросы параллельно через потоки ~5 с; замер 2026-09-16: 15,0 с; каждый запрос в своей защите — частичные строки пишутся). С 2026-09-16 ~13:55 UTC — 87 строк/опрос (+30: 10 акций AAPL/AMZN/COIN/HOOD/META/MSFT/NVDA/QQQ/SPX/TSLA на vari/lighter/aster; SPY пропущен — нет в Variational).
 
 **Матрица (что пишется):**
 
 | Площадка | Золото | Серебро | Прочее |
 |---|---|---|---|
-| Variational (12) | XAUT, XAU, PAXG | XAG | XPT, XPD, WTI (тик. CL), NATGAS, BTC, ETH, SOL, 1000PEPE |
-| Lighter (11) | XAU, PAXG | XAG | XPT, XPD, WTI, NATGAS, BTC, ETH, SOL, 1000PEPE |
+| Variational (22) | XAUT, XAU, PAXG | XAG | XPT, XPD, WTI (тик. CL), NATGAS, BTC, ETH, SOL, 1000PEPE, акции×10 (с 16.09) |
+| Lighter (21) | XAU, PAXG | XAG | XPT, XPD, WTI, NATGAS, BTC, ETH, SOL, 1000PEPE, акции×10 (с 16.09) |
 | Hyperliquid (5) | PAXG-перп | — | BTC/ETH/SOL-перп + XAUT0-спот (любопытство) |
-| Aster (11) | XAU, PAXG | XAG | XPT, XPD, WTI (CLUSDT), NATGAS, BTC, ETH, SOL, 1000PEPE |
+| Aster (21) | XAU, PAXG | XAG | XPT, XPD, WTI (CLUSDT), NATGAS, BTC, ETH, SOL, 1000PEPE, акции×10 (с 16.09) |
 | Paradex (9) | XAU✝, PAXG | XAG✝ | XPT✝, WTI✝ (CL), NATGAS✝ (NG), BTC, ETH, SOL⚠; XPD нет |
 | ApeX (9) | XAU, PAXG | XAG | WTI (CLUSDT), NATGAS, BTC, ETH, SOL, 1000PEPE; XPT/XPD нет |
 

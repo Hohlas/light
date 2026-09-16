@@ -49,15 +49,24 @@ PARADEX = "https://api.prod.paradex.trade/v1"
 APEX = "https://omni.apex.exchange/api/v3"
 
 VAR_TICKERS = ("XAUT", "XAU", "PAXG", "XAG", "XPT", "XPD", "CL", "NATGAS",
-               "BTC", "ETH", "SOL", "1000PEPE")
+                "BTC", "ETH", "SOL", "1000PEPE",
+                "AAPL", "AMZN", "COIN", "HOOD", "META", "MSFT", "NVDA",
+                "QQQ", "SPX", "TSLA")  # stocks since 2026-09-16 (14d gate clock)
 VAR_NORM = {"CL": "WTI"}  # venue ticker -> canonical symbol
 LIGHTER_MIDS = ((92, "XAU"), (48, "PAXG"), (93, "XAG"), (147, "XPT"),
                 (146, "XPD"), (145, "WTI"), (158, "NATGAS"), (1, "BTC"),
-                (0, "ETH"), (2, "SOL"), (4, "1000PEPE"))
+                (0, "ETH"), (2, "SOL"), (4, "1000PEPE"),
+                (113, "AAPL"), (114, "AMZN"), (109, "COIN"), (108, "HOOD"),
+                (117, "META"), (115, "MSFT"), (110, "NVDA"), (129, "QQQ"),
+                (42, "SPX"), (112, "TSLA"))
 ASTER_SYMS = (("XAUUSDT", "XAU"), ("PAXGUSDT", "PAXG"), ("XAGUSDT", "XAG"),
               ("XPTUSDT", "XPT"), ("XPDUSDT", "XPD"), ("CLUSDT", "WTI"),
               ("NATGASUSDT", "NATGAS"), ("BTCUSDT", "BTC"), ("ETHUSDT", "ETH"),
-              ("SOLUSDT", "SOL"), ("1000PEPEUSDT", "1000PEPE"))
+              ("SOLUSDT", "SOL"), ("1000PEPEUSDT", "1000PEPE"),
+              ("AAPLUSDT", "AAPL"), ("AMZNUSDT", "AMZN"), ("COINUSDT", "COIN"),
+              ("HOODUSDT", "HOOD"), ("METAUSDT", "META"), ("MSFTUSDT", "MSFT"),
+              ("NVDAUSDT", "NVDA"), ("QQQUSDT", "QQQ"), ("SPXUSDT", "SPX"),
+              ("TSLAUSDT", "TSLA"))
 PARADEX_SYMS = (("XAU-USD-PERP", "XAU"), ("PAXG-USD-PERP", "PAXG"),
                 ("XAG-USD-PERP", "XAG"), ("XPT-USD-PERP", "XPT"),
                 ("CL-USD-PERP", "WTI"), ("NG-USD-PERP", "NATGAS"),
@@ -285,6 +294,9 @@ def spreads(rows: list[dict]) -> dict[str, float | None]:
         out[key] = bp(mark("lighter", sym), mark(venue, sym))
     vx, va = mark("variational", "XAUT"), mark("variational", "XAU")
     out["vari_xaut_vs_xau"] = bp(va, vx)
+    for sym in ("AAPL", "AMZN", "COIN", "HOOD", "META", "MSFT", "NVDA",
+                "QQQ", "SPX", "TSLA"):
+        out[f"eq_{sym.lower()}"] = bp(mark("lighter", sym), mark("aster", sym))
     return out
 
 
@@ -324,6 +336,8 @@ def main() -> None:
                   f"pdax_paxg={fmt(sp['pdax_paxg'])} vari_xag={fmt(sp['vari_xag'])} "
                   f"vari_xpt={fmt(sp['vari_xpt'])} vari_wti={fmt(sp['vari_wti'])} "
                   f"vari_btc={fmt(sp['vari_btc'])} "
+                  f"eq_qqq={fmt(sp['eq_qqq'])} eq_aapl={fmt(sp['eq_aapl'])} "
+                  f"eq_tsla={fmt(sp['eq_tsla'])} eq_nvda={fmt(sp['eq_nvda'])} "
                   + (f"errors={','.join(errs)}" if errs else "ok"), flush=True)
         except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError,
                 OSError, json.JSONDecodeError, KeyError) as e:
