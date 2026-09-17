@@ -151,10 +151,21 @@ def poll_variational() -> list[dict]:
     return out
 
 
+def _get_retry(url: str, timeout: int = 20, tries: int = 2):
+    """One retry: Lighter intermittently drops single markets (transient)."""
+    err: Exception | None = None
+    for _ in range(tries):
+        try:
+            return _get(url, timeout=timeout)
+        except Exception as e:  # noqa: BLE001 - retry then propagate
+            err = e
+    raise err  # type: ignore[misc]
+
+
 def poll_lighter() -> list[dict]:
     out = []
     res, _ = _fetch_all(list(LIGHTER_MIDS),
-                        lambda it: (_get(f"{LIGHTER}/orderBookDetails?market_id={it[0]}")
+                        lambda it: (_get_retry(f"{LIGHTER}/orderBookDetails?market_id={it[0]}")
                                     .get("order_book_details") or [{}])[0])
     for (mid, sym), d, e in res:
         if e or not d:
