@@ -106,10 +106,21 @@ def _post(url: str, payload: dict, timeout: int = 20):
 
 
 def _fetch_all(items: list, fetch, workers: int = 10) -> tuple[list, int]:
-    """Concurrent GETs (I/O-bound); returns (results in order, fail count)."""
+    """Concurrent GETs (I/O-bound); returns (results in order, fail count).
+
+    Per-item error tag: 'HTTP<code>:<body-head>' for HTTP errors (first 120
+    chars of the response body -- enough to tell throttling apart from an
+    empty market or maintenance), else the exception type name.
+    """
     def safe(it):
         try:
             return (it, fetch(it), None)
+        except urllib.error.HTTPError as e:
+            try:
+                body = e.read(120).decode("utf-8", "replace")
+            except Exception:  # noqa: BLE001 - best effort diagnostics
+                body = ""
+            return (it, None, f"HTTP{e.code}:{body[:120]}")
         except Exception as e:  # noqa: BLE001 - per-item isolation
             return (it, None, type(e).__name__)
     with ThreadPoolExecutor(max_workers=workers) as ex:
@@ -154,30 +165,35 @@ def poll_variational() -> list[dict]:
     return out
 
 
-def _get_retry(url: str, timeout: int = 20, tries: int = 3):
-    """Two retries: Lighter intermittently drops single markets (transient)."""
+def _get_retry(url: str, timeout: int = 20, tries: int = 3, compress: bool = False):
+    """Retries: Lighter intermittently drops single markets (transient)."""
     err: Exception | None = None
     for _ in range(tries):
         try:
-            return _get(url, timeout=timeout)
+            return _get(url, timeout=timeout, compress=compress)
         except Exception as e:  # noqa: BLE001 - retry then propagate
             err = e
     raise err  # type: ignore[misc]
 
 
 def poll_lighter() -> list[dict]:
+    """One batched orderBookDetails call (all 235 markets) mapped by market_id.
+
+    Missing legs are emitted as "" rows (see data/README.md invariant), never
+    skipped: absent row = poll did not happen, empty mark = leg missing.
+    """
     out = []
-    res, _ = _fetch_all(list(LIGHTER_MIDS),
-                        lambda it: (_get_retry(f"{LIGHTER}/orderBookDetails?market_id={it[0]}")
-                                    .get("order_book_details") or [{}])[0],
-                        workers=5)  # 5, not 10: Lighter throttles bursts, misses rotate otherwise
-    for (mid, sym), d, e in res:
-        if e or not d:
+    d = _get_retry(f"{LIGHTER}/orderBookDetails", timeout=25, compress=True)
+    by_mid = {x.get("market_id"): x for x in (d.get("order_book_details") or [])}
+    for mid, sym in LIGHTER_MIDS:
+        m = by_mid.get(mid)
+        if not m or not m.get("mark_price"):
             MISSED.append(f"lighter:{sym}")
+            out.append(row("lighter", "perp", sym))
             continue
-        out.append(row("lighter", "perp", sym, mark=d.get("mark_price"),
-                       index=d.get("index_price"), last=d.get("last_trade_price"),
-                       oi=d.get("open_interest")))
+        out.append(row("lighter", "perp", sym, mark=m.get("mark_price"),
+                       index=m.get("index_price"), last=m.get("last_trade_price"),
+                       oi=m.get("open_interest")))
     return out
 
 
@@ -206,27 +222,22 @@ def poll_hyperliquid() -> list[dict]:
     return out
 
 
-def _aster_bundle(it) -> dict:
-    sym, norm = it
-    b = _get(f"{ASTER}/fapi/v1/ticker/bookTicker?symbol={sym}")
-    t = _get(f"{ASTER}/fapi/v1/ticker/24hr?symbol={sym}")
-    try:
-        p = _get(f"{ASTER}/fapi/v1/premiumIndex?symbol={sym}")
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError,
-            OSError, json.JSONDecodeError, KeyError, ValueError):
-        p = {}
-    return {"norm": norm, "b": b, "t": t, "p": p}
-
-
 def poll_aster() -> list[dict]:
+    """Three batched calls (bookTicker / 24hr / premiumIndex, all symbols).
+
+    Missing legs are emitted as "" rows (see data/README.md invariant).
+    """
     out = []
-    res, _ = _fetch_all(list(ASTER_SYMS), _aster_bundle)
-    for (sym, _norm), r, e in res:
-        if e or not r:
+    books = {b.get("symbol"): b for b in _get_retry(f"{ASTER}/fapi/v1/ticker/bookTicker", compress=True)}
+    days = {t.get("symbol"): t for t in _get_retry(f"{ASTER}/fapi/v1/ticker/24hr", compress=True)}
+    prems = {p.get("symbol"): p for p in _get_retry(f"{ASTER}/fapi/v1/premiumIndex", compress=True)}
+    for sym, norm in ASTER_SYMS:
+        b, t, p = books.get(sym, {}), days.get(sym, {}), prems.get(sym, {})
+        if not (b or t or p):
             MISSED.append(f"aster:{sym}")
+            out.append(row("aster", "perp", norm))
             continue
-        b, t, p = r["b"], r["t"], r["p"]
-        out.append(row("aster", "perp", r["norm"], mark=t.get("lastPrice") or p.get("markPrice"),
+        out.append(row("aster", "perp", norm, mark=t.get("lastPrice") or p.get("markPrice"),
                        index=p.get("indexPrice"), last=t.get("lastPrice"),
                        bid=b.get("bidPrice"), ask=b.get("askPrice"),
                        funding=p.get("lastFundingRate"), funding_unit="per_8h?",
@@ -242,7 +253,8 @@ def poll_paradex() -> list[dict]:
                         lambda it: _get(f"{PARADEX}/bbo/{it[0]}"))
     for (market, norm), b, e in res:
         if e or not b:
-            MISSED.append(f"paradex:{norm}")
+            MISSED.append(f"paradex:{norm}" + (f":{e}" if e else ""))
+            out.append(row("paradex", "perp", norm))
             continue
         try:
             mid = (float(b.get("bid")) + float(b.get("ask"))) / 2
@@ -264,9 +276,10 @@ def _apex_bundle(it) -> dict:
 def poll_apex() -> list[dict]:
     out = []
     res, _ = _fetch_all(list(APEX_SYMS), _apex_bundle)
-    for (sym, _norm), r, e in res:
+    for (sym, norm), r, e in res:
         if e or not r:
-            MISSED.append(f"apex:{sym}")
+            MISSED.append(f"apex:{sym}" + (f":{e}" if e else ""))
+            out.append(row("apex", "perp", norm))
             continue
         t, d = r["t"], r["d"]
         asks, bids = d.get("a") or [], d.get("b") or []
@@ -337,7 +350,13 @@ def main() -> None:
                        poll_aster, poll_paradex, poll_apex):
                 try:
                     rows += fn()
-                except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError,
+                except urllib.error.HTTPError as e:
+                    try:
+                        body = e.read(120).decode("utf-8", "replace")
+                    except Exception:  # noqa: BLE001 - best effort diagnostics
+                        body = ""
+                    errs.append(f"{fn.__name__}:HTTP{e.code}:{body[:120]}")
+                except (urllib.error.URLError, TimeoutError,
                         OSError, json.JSONDecodeError, KeyError, ValueError) as e:
                     errs.append(f"{fn.__name__}:{type(e).__name__}")
             path = os.path.join(args.outdir, f"cross_fast_{now:%Y-%m-%d}.csv")
