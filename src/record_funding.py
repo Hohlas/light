@@ -1,8 +1,8 @@
-"""Cross-venue funding recorder for the gold basis (explorer.md directions 2-3).
+"""Cross-venue funding recorder for the gold basis + majors (explorer.md dirs 2-3).
 
 Polls Lighter's aggregated funding-rates endpoint (one call gives XAU/PAXG/XAG
-rates across lighter/binance/bybit/hyperliquid) plus an optional one-shot
-Binance PAXGUSDT funding history backfill for retrospective context.
+plus BTC/ETH rates across lighter/binance/bybit/hyperliquid) plus optional
+one-shot Binance funding history backfills for retrospective context.
 
 Read-only public endpoints, no accounts, no trading. Status: DIAGNOSTIC_ONLY.
 
@@ -29,9 +29,7 @@ from datetime import datetime, timezone
 
 POLL_S = 600
 LIGHTER_FUNDING = "https://mainnet.zklighter.elliot.ai/api/v1/funding-rates"
-BINANCE_HIST = ("https://fapi.binance.com/fapi/v1/fundingRate"
-                "?symbol=PAXGUSDT&limit=1000")
-SYMBOLS = ("XAU", "PAXG", "XAG")
+SYMBOLS = ("XAU", "PAXG", "XAG", "BTC", "ETH")
 
 FIELDS = ["ts_utc", "exchange", "symbol", "market_id", "rate", "rate_bp"]
 
@@ -78,14 +76,17 @@ def append(outdir: str, rows: list[dict]) -> str:
     return path
 
 
-def backfill_binance(outdir: str) -> str:
-    hist = _get(BINANCE_HIST)
+def backfill_binance(outdir: str, symbol: str = "PAXG") -> str:
+    pair = f"{symbol}USDT"
+    url = (f"https://fapi.binance.com/fapi/v1/fundingRate"
+           f"?symbol={pair}&limit=1000")
+    hist = _get(url)
     rows = [{"ts_utc": datetime.fromtimestamp(h["fundingTime"] / 1000,
                                               tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-             "exchange": "binance", "symbol": "PAXG", "market_id": "",
+             "exchange": "binance", "symbol": symbol, "market_id": "",
              "rate": float(h["fundingRate"]),
              "rate_bp": float(h["fundingRate"]) * 1e4} for h in hist]
-    path = os.path.join(outdir, "funding_binance_paxg_hist.csv")
+    path = os.path.join(outdir, f"funding_binance_{symbol.lower()}_hist.csv")
     new = not os.path.exists(path)
     with open(path, "a", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=FIELDS)
@@ -99,14 +100,15 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--once", action="store_true")
     ap.add_argument("--backfill-binance", action="store_true")
+    ap.add_argument("--backfill-symbol", default="PAXG")
     ap.add_argument("--outdir", default="data")
     args = ap.parse_args()
     os.makedirs(args.outdir, exist_ok=True)
 
     if args.backfill_binance:
         try:
-            path, n = backfill_binance(args.outdir)
-            print(f"backfill -> {path} rows={n}", flush=True)
+            path, n = backfill_binance(args.outdir, args.backfill_symbol.upper())
+            print(f"backfill {args.backfill_symbol.upper()} -> {path} rows={n}", flush=True)
         except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError,
                 OSError, json.JSONDecodeError, KeyError) as e:
             print(f"backfill ERROR {type(e).__name__}: {e}", flush=True)
@@ -120,9 +122,13 @@ def main() -> None:
             path = append(args.outdir, rows)
             dx = divergence(rows, "XAU")
             dp = divergence(rows, "PAXG")
+            db = divergence(rows, "BTC")
+            de = divergence(rows, "ETH")
             print(f"{now:%Y-%m-%dT%H:%M:%SZ} rows={len(rows)} "
                   f"divXAU_bp={round(dx, 3) if dx is not None else None} "
                   f"divPAXG_bp={round(dp, 3) if dp is not None else None} "
+                  f"divBTC_bp={round(db, 3) if db is not None else None} "
+                  f"divETH_bp={round(de, 3) if de is not None else None} "
                   f"-> {path}", flush=True)
         except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError,
                 OSError, json.JSONDecodeError, KeyError) as e:
