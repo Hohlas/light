@@ -117,6 +117,9 @@ def _fetch_all(items: list, fetch, workers: int = 10) -> tuple[list, int]:
     return res, sum(1 for _, _, e in res if e)
 
 
+MISSED: list[str] = []  # per-poll silently skipped legs (venue:sym), reset each cycle, log only
+
+
 def row(venue, kind, symbol, **kw):
     r = {
         "ts_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -151,8 +154,8 @@ def poll_variational() -> list[dict]:
     return out
 
 
-def _get_retry(url: str, timeout: int = 20, tries: int = 2):
-    """One retry: Lighter intermittently drops single markets (transient)."""
+def _get_retry(url: str, timeout: int = 20, tries: int = 3):
+    """Two retries: Lighter intermittently drops single markets (transient)."""
     err: Exception | None = None
     for _ in range(tries):
         try:
@@ -166,9 +169,11 @@ def poll_lighter() -> list[dict]:
     out = []
     res, _ = _fetch_all(list(LIGHTER_MIDS),
                         lambda it: (_get_retry(f"{LIGHTER}/orderBookDetails?market_id={it[0]}")
-                                    .get("order_book_details") or [{}])[0])
+                                    .get("order_book_details") or [{}])[0],
+                        workers=5)  # 5, not 10: Lighter throttles bursts, misses rotate otherwise
     for (mid, sym), d, e in res:
         if e or not d:
+            MISSED.append(f"lighter:{sym}")
             continue
         out.append(row("lighter", "perp", sym, mark=d.get("mark_price"),
                        index=d.get("index_price"), last=d.get("last_trade_price"),
@@ -216,8 +221,9 @@ def _aster_bundle(it) -> dict:
 def poll_aster() -> list[dict]:
     out = []
     res, _ = _fetch_all(list(ASTER_SYMS), _aster_bundle)
-    for _, r, e in res:
+    for (sym, _norm), r, e in res:
         if e or not r:
+            MISSED.append(f"aster:{sym}")
             continue
         b, t, p = r["b"], r["t"], r["p"]
         out.append(row("aster", "perp", r["norm"], mark=t.get("lastPrice") or p.get("markPrice"),
@@ -236,6 +242,7 @@ def poll_paradex() -> list[dict]:
                         lambda it: _get(f"{PARADEX}/bbo/{it[0]}"))
     for (market, norm), b, e in res:
         if e or not b:
+            MISSED.append(f"paradex:{norm}")
             continue
         try:
             mid = (float(b.get("bid")) + float(b.get("ask"))) / 2
@@ -257,8 +264,9 @@ def _apex_bundle(it) -> dict:
 def poll_apex() -> list[dict]:
     out = []
     res, _ = _fetch_all(list(APEX_SYMS), _apex_bundle)
-    for _, r, e in res:
+    for (sym, _norm), r, e in res:
         if e or not r:
+            MISSED.append(f"apex:{sym}")
             continue
         t, d = r["t"], r["d"]
         asks, bids = d.get("a") or [], d.get("b") or []
@@ -324,6 +332,7 @@ def main() -> None:
         t0 = time.time()
         try:
             rows, errs = [], []
+            del MISSED[:]
             for fn in (poll_variational, poll_lighter, poll_hyperliquid,
                        poll_aster, poll_paradex, poll_apex):
                 try:
@@ -347,9 +356,10 @@ def main() -> None:
                   f"pdax_paxg={fmt(sp['pdax_paxg'])} vari_xag={fmt(sp['vari_xag'])} "
                   f"vari_xpt={fmt(sp['vari_xpt'])} vari_wti={fmt(sp['vari_wti'])} "
                   f"vari_btc={fmt(sp['vari_btc'])} "
-                  f"eq_qqq={fmt(sp['eq_qqq'])} eq_aapl={fmt(sp['eq_aapl'])} "
-                  f"eq_tsla={fmt(sp['eq_tsla'])} eq_nvda={fmt(sp['eq_nvda'])} "
-                  + (f"errors={','.join(errs)}" if errs else "ok"), flush=True)
+                   f"eq_qqq={fmt(sp['eq_qqq'])} eq_aapl={fmt(sp['eq_aapl'])} "
+                   f"eq_tsla={fmt(sp['eq_tsla'])} eq_nvda={fmt(sp['eq_nvda'])} "
+                   + (f"errors={','.join(errs)}" if errs else "ok")
+                   + (f" miss={','.join(MISSED)}" if MISSED else ""), flush=True)
         except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError,
                 OSError, json.JSONDecodeError, KeyError) as e:
             print(f"{now:%Y-%m-%dT%H:%M:%SZ} ERROR {type(e).__name__}: {e}", flush=True)

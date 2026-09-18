@@ -8,6 +8,7 @@
 - `spread_sample.csv`, `lighter_xau_1m_sample.csv` — семплы для гита.
 - `funding_YYYY-MM.csv` — кросс-площадочный фандинг (`src/record_funding.py`, опрос каждых 10 мин): `ts_utc,exchange,symbol,market_id,rate,rate_bp`. Символы XAU/PAXG/XAG × площадки lighter/binance/bybit/hyperliquid (один эндпоинт Lighter). Единицы сырые, как отдаёт источник, — без конверсии не смешивать.
 - `funding_binance_paxg_hist.csv` — история фандинга Binance PAXGUSDT (разовый бэкфилл 17.09, 500 точек с 26.06, интервал ~4 ч), тот же формат.
+- `cex_books_ГГГГ-ММ-ДД.csv` — книги CEX (`src/poll_cex_books.py`, опрос 60 с): `ts_utc,venue,market,symbol,bid,ask,bid_qty,ask_qty,bid_not5_usd,ask_not5_usd,spread_bp,src_ts`. Ноги: Binance PAXGUSDT-perp, Binance XAUTUSDT-спот, Bybit PAXGUSDT-perp.
 
 Схема снимков:
 
