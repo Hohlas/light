@@ -21,7 +21,7 @@
 | `mark`, `index`, `last` | маркировка / индекс / последняя сделка |
 | `bid`, `ask` | лучшие цены (variational — OLP на 1k) |
 | `bid_100k`, `ask_100k`, `oi_short`, `volume_24h`, `base_spread_bps` | только `cross_fast_*` |
-| `funding`, `funding_unit` | ставка; `per_8h` / `per_1h` / `annualized_decimal` |
+| `funding`, `funding_unit` | ставка; Lighter `per_1h` (платежи ежечасные, quoted rate = часовой платёж), прочие `per_8h` / `annualized_decimal` — см. контекст §10 |
 | `oi` | открытый интерес |
 | `src_ts` | метка источника; размеры как `ts=…;bid_sz=…;ask_sz=…` |
 

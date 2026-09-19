@@ -36,9 +36,18 @@
 .
 ├── src/
 │   ├── record_spread.py        # Минутный рекордер: Variational + Lighter → data/
-│   └── backfill_lighter_1m.py  # Бэкфилл нативных 1-минутных свечей Lighter
+│   ├── backfill_lighter_1m.py  # Бэкфилл нативных 1-минутных свечей Lighter
+│   ├── backfill_aster_1m.py    # Бэкфилл нативных 1-минутных свечей Aster
+│   ├── record_tick_lighter.py  # Опрос стакана XAU/PAXG 2 с (снят 2026-09-14, оставлен)
+│   ├── stream_tick_lighter.py  # Поток ticker/92+48 → тики (рабочий сбор)
+│   ├── norm_tick.py            # Нормы 1/3/6/12/24 ч раз в минуту
+│   ├── poll_cross_fast.py      # Кросс-опрос 6 площадок 15 с → cross_fast
+│   ├── record_funding.py       # Кросс-фандинг 10 мин → funding
+│   └── poll_cex_books.py       # Книги Binance/Bybit 60 с → cex_books
 ├── docs/
-│   └── xaut-xau-basis-context.md  # Контекст темы: числа, решения, источники
+│   ├── xaut-xau-basis-context.md  # Контекст темы: числа, решения, источники
+│   ├── audit.md                   # Аудит контекста (не источник истины)
+│   └── explorer.md                # Заметки разведки площадок
 ├── data/
 │   ├── README.md               # Формат данных + происхождение
 │   ├── spread_YYYY-MM.csv      # Снимки рекордера (вне гита, append)

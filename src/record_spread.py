@@ -5,7 +5,7 @@ PAXG-PERP m48, XAUT/USDC spot m2056, funding).
 
 Read-only public endpoints, no accounts, no trading. Status: DIAGNOSTIC_ONLY.
 
-Design (see docs/xaut-xau-basis-context.md §8/§14):
+Design (see docs/xaut-xau-basis-context.md §8):
   * Lighter minute history is re-fetchable from its candles API, so for Lighter
     we only need live snapshots (executable quotes, funding);
   * Variational has NO history endpoint, so its snapshots are polled every
@@ -84,7 +84,7 @@ def poll_lighter_funding() -> list[dict]:
     for x in f.get("funding_rates", []):
         if x.get("exchange") == "lighter" and x.get("symbol") in ("XAU", "PAXG"):
             out.append(row("lighter", "funding", x.get("symbol"), funding=x.get("rate"),
-                           funding_unit="per_8h"))
+                           funding_unit="per_1h"))
     return out
 
 
@@ -112,7 +112,7 @@ def in_window(now: datetime) -> bool:
         return True
     if wd == 0 and h < 4:
         return True
-    return 11 <= h < 16          # intraday cluster under verification (§13)
+    return 11 <= h < 16          # intraday cluster under verification (§7)
 
 
 def spreads(rows: list[dict]) -> dict[str, float | None]:

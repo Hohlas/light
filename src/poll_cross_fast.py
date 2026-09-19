@@ -240,7 +240,7 @@ def poll_aster() -> list[dict]:
         out.append(row("aster", "perp", norm, mark=t.get("lastPrice") or p.get("markPrice"),
                        index=p.get("indexPrice"), last=t.get("lastPrice"),
                        bid=b.get("bidPrice"), ask=b.get("askPrice"),
-                       funding=p.get("lastFundingRate"), funding_unit="per_8h?",
+                       funding=p.get("lastFundingRate"), funding_unit="unknown",
                        volume_24h=t.get("quoteVolume") or t.get("volume"),
                        src_ts=f"ts={b.get('time', '')};bid_sz={b.get('bidQty', '')};"
                               f"ask_sz={b.get('askQty', '')}"))

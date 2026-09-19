@@ -11,6 +11,10 @@ Usage:
 Output: data/tick_norm_YYYY-MM-DD.csv: ts_utc,norm_1h,norm_3h,norm_6h,
 norm_12h,norm_24h,n_hb. Empty value while history < window (warm-up).
 Status: DIAGNOSTIC_ONLY, read-only input, append-only output.
+
+NOTE (perf): load_heartbeats re-reads the full tick stream file(s) every
+minute; file grows ~50 MB/day. For long runs prefer offset-based tail read
+or a compact heartbeat series (not implemented — see audit F11).
 """
 
 from __future__ import annotations
@@ -77,6 +81,9 @@ def compute(outdir: str, now: datetime) -> dict:
     for w in WINDOWS_H:
         cut = now - timedelta(hours=w)
         vals = [v for t, v in pts if t >= cut]
+        if len(vals) < w * 60:
+            row[f"norm_{w}h"] = ""
+            continue
         m = trimmed_mean(vals)
         row[f"norm_{w}h"] = round(m, 2) if m is not None else ""
     return row

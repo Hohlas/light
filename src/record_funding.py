@@ -7,7 +7,9 @@ one-shot Binance funding history backfills for retrospective context.
 Read-only public endpoints, no accounts, no trading. Status: DIAGNOSTIC_ONLY.
 
 Units: Lighter rows are stored raw as returned (same scale as the existing
-`funding` rows in spread_*.csv, labelled per_8h there). Binance history rows
+`funding` rows in spread_*.csv, labelled per_1h there: payments hourly,
+quoted rate is the hourly payment rate per docs.lighter.xyz/trading/funding).
+Binance history rows
 carry their own fundingTime; rate is per funding interval of that symbol.
 Do NOT mix units without conversion -- see data/README.md.
 
