@@ -1,4 +1,4 @@
-"""Cross-venue funding recorder for the gold basis + majors (explorer.md dirs 2-3).
+"""Cross-venue funding recorder for the gold basis + majors (context §6 p.12, 15).
 
 Polls Lighter's aggregated funding-rates endpoint (one call gives XAU/PAXG/XAG
 plus BTC/ETH rates across lighter/binance/bybit/hyperliquid) plus optional

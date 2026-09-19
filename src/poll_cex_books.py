@@ -1,4 +1,4 @@
-"""CEX book poller for cross-venue gold basis (explorer.md direction 1).
+"""CEX book poller for cross-venue gold basis (context §6 p.16, 18).
 
 Polls public top-of-book + short depth every POLL_S for:
   * Binance PAXGUSDT perp  (bookTicker + depth5)
